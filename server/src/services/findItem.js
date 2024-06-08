@@ -16,4 +16,10 @@ const findById = async (Model, id, options = {}) => {
 }
 }
 
-module.exports = {findById}
+
+
+const checkUserExists = async (email) => {
+    return await User.exists({ email });
+}
+
+module.exports = {findById, checkUserExists}
