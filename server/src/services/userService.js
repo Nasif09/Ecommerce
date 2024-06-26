@@ -1,5 +1,6 @@
 const mongoose = require('mongoose');
 const createError = require("http-errors");
+const jwt = require('jsonwebtoken');
 
 const bcrypt = require('bcryptjs');
 const User = require("../models/userModel");
@@ -7,6 +8,9 @@ const { deleteImage } = require("../helper/deleteImage");
 const { createJSONWebToken } = require('../helper/jsonwebtoken');
 const { jwtResetPasswordKey, clientURL } = require('../secrect');
 const emailWithNodeMailer = require('../helper/email');
+const sendEmail = require('../helper/sendEmail');
+const { publicIdWithoutExtensionFormUrl, deleteFileFromCloudinary } = require('../helper/cloudinaryHelper');
+const cloudinary = require('cloudinary').v2;
 
 
 
@@ -29,7 +33,7 @@ const findUsers = async(search,limit,page) => {
 
         const count = await User.find(filter).countDocuments();
 
-        if(!users) throw createError(404, 'no users found');
+        if(!users || users.length == 0 ) throw createError(404, 'no users found');
 
         return {
             users, 
@@ -61,14 +65,22 @@ const findUserById = async(id, options={}) => {
 }
 const deleteUserById = async(id, options={}) => {
     try{
-        const user = await User.findByIdAndDelete({_id: id, isAdmin: false});
-        if(user && user.image) {
-            await deleteImage(user.image);
+        const existingUser = await User.findOne({_id:id});
+        if(existingUser && existingUser.image){
+            const publicId = await publicIdWithoutExtensionFormUrl(
+                existingUser.image
+            );
+            deleteFileFromCloudinary('ecommerceMern/users',publicId, 'Users');
         }
+        await User.findByIdAndDelete({_id: id, isAdmin: false});
+        // if(user && user.image) {
+        //     await deleteImage(user.image);
+        // }
     }catch(error){
         throw error;
     }
 }
+
 const updateUserById = async(userId, req) => {
     try{
         const options = { password: 0 };
@@ -76,10 +88,11 @@ const updateUserById = async(userId, req) => {
         const updateOptions = { new: true, runValidators: true, context: 'query' };
         let updates = {};
 
-        for(let key in req.body){
-            if(['name', 'password', 'phone', 'address'].includes(key)){
+        const allowedFields = ['name', 'password', 'phone', 'address'];
+        for(const key in req.body){
+            if(allowedFields.includes(key)){
                 updates[key] = req.body[key];
-            }else if(['email'].includes(key)){
+            }else if(key == 'email'){
                 throw createError(400, 'Email can not be updated');
             }
         }
@@ -89,11 +102,12 @@ const updateUserById = async(userId, req) => {
             if(image.size > 1024*1024*20){
                 throw createError(400, 'File too large. It must be less than 2MB');
             }
-            updates.image = image;
-            user.image != 'default.png' && deleteImage(user.image);
+            const response = await cloudinary.uploader.upload(image,{
+                folder: 'ecommerceMern/users',
+            })
+            updates.image = response.secure_url;
         }
 
-        //delete updates.email
         const updatedUser = await User.findByIdAndUpdate(
             userId, 
             updates, 
@@ -102,6 +116,15 @@ const updateUserById = async(userId, req) => {
 
         if(!updatedUser){
             throw createError(404, 'User with this id does not exist');
+        }
+
+        //delte previous image from cloudinary
+        if(user.image){
+            const publicId = await publicIdWithoutExtensionFormUrl(user.image);
+            await deleteFileFromCloudinary('ecommerceMern/users',
+                publicId,
+                'User'
+            );
         }
         return updatedUser;
     }catch(error){
@@ -166,15 +189,35 @@ const forgetPasswordByEmail = async( email ) => {
             Reset your password</a></p>
             `,
         }
-        
         //send email with nodemailer
-        try{
-            await emailWithNodeMailer(emailData);
-        }catch(error){
-            next(createError(500, 'Failed to send reset password email'));
-            return ;
-        }
+        sendEmail(emailData);
         return token;
+    }catch(error){
+        throw error;
+    }
+}
+
+const resetPassword = async( token, password) => {
+    try{
+        const decoded = jwt.verify(token, jwtResetPasswordKey);
+
+        if(!decoded){
+            throw createError(400, 'Invalid or expired token');
+        }
+
+        const filter = { email: decoded.email };
+        const update= { password: password};
+        const options = {new: true };
+        const updatedUser = await User.findOneAndUpdate(
+            filter,
+            update,
+            options
+        ).select('-password');
+
+        if(!updatedUser) 
+            { 
+                throw createError(400, 'password reset failed');
+            }
     }catch(error){
         throw error;
     }
@@ -222,4 +265,5 @@ module.exports = {
     updateUserById, 
     updateUserPasswordById,
     forgetPasswordByEmail,
+    resetPassword,
     handleUserAction}

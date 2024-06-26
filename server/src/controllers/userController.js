@@ -3,18 +3,20 @@ const jwt = require('jsonwebtoken');
 const fs = require('fs');
 const User = require('../models/userModel');
 const { successResponse } = require('./responseController');
-const { findById, checkUserExists } = require('../services/findItem');
+//const { findById, checkUserExists } = require('../services/findItem');
 const { deleteImage } = require('../helper/deleteImage');
 const { createJSONWebToken } = require('../helper/jsonwebtoken');
 const { jwtActivationKey, clientURL, jwtResetPasswordKey } = require('../secrect');
 const emailWithNodeMailer = require('../helper/email');
 const { runValidation } = require('../validators');
 const bcrypt = require('bcryptjs');
-const { handleUserAction, findUsers, findUserById, deleteUserById, updateUserById, updateUserPasswordById, forgetPasswordByEmail } = require('../services/userService');
+const { handleUserAction, findUsers, findUserById, deleteUserById, updateUserById, updateUserPasswordById, forgetPasswordByEmail, resetPassword } = require('../services/userService');
+const checkUserExists = require('../helper/checkUserExits');
+const sendEmail = require('../helper/sendEmail');
+const cloudinary = require('../config/cloudinary');
 
 
-
-const getUsers = async(req, res, next) => {
+const handleGetUsers = async(req, res, next) => {
     try{
         const search = req.query.search || '';
         const page = Number(req.query.page) || 1;
@@ -34,7 +36,7 @@ const getUsers = async(req, res, next) => {
         next(error);
     }
 }
-const getUserById = async(req, res, next) => {
+const handleGetUserById = async(req, res, next) => {
     try{
         const id = req.params.id;
         const options = { password: 0 };
@@ -64,7 +66,7 @@ const handleDeleteUserById = async(req, res, next) => {
     }
 }
 
-const processRegister = async(req, res, next) => {
+const handleProcessRegister = async(req, res, next) => {
     try{
         const { name, email, password, phone, address } = req.body;
 
@@ -111,12 +113,7 @@ const processRegister = async(req, res, next) => {
         }
         
         //send email with nodemailer
-        try{
-            await emailWithNodeMailer(emailData);
-        }catch(error){
-            next(createError(500, 'Failed to send verification email'));
-            return ;
-        }
+        sendEmail(emailData);
 
         return successResponse(res,{
             statusCode: 200,
@@ -127,7 +124,7 @@ const processRegister = async(req, res, next) => {
         next(error);
     }
 }
-const activateUserAccount = async(req, res, next) => {
+const handleActivateUserAccount = async(req, res, next) => {
     try{
         const token = req.body.token;
         console.log("token:::::", token);
@@ -143,6 +140,14 @@ const activateUserAccount = async(req, res, next) => {
                 409,
                 'User with this email already exists. Please sign in'
             )
+        }
+
+        const image = decoded.image;
+        if(image){
+            const response = await cloudinary.uploader.upload(image,{
+                folder: 'ecommerceMern/users',
+            });
+            decoded.image = response.secure_url;
         }
 
         await User.create(decoded);
@@ -178,6 +183,7 @@ const handleUpdateUserById = async(req, res, next) => {
         next(error);
     }
 }
+
 const handleUpdatePassword = async(req, res, next) => {
     try{
         const { email, oldPassword, newPassword, confirnPassword } = req.body;
@@ -196,13 +202,25 @@ const handleUpdatePassword = async(req, res, next) => {
 const handleForgetPassword = async(req, res, next) => {
     try{
         const {email} = req.body;
-
         const token = await forgetPasswordByEmail(email);
 
         return successResponse(res,{
             statusCode: 200,
             message: `Please go to your ${email} for reset your password`,
             payload: token ,
+        })
+    }catch(error){
+        next(error);
+    }
+}
+const handleResetPassword = async(req, res, next) => {
+    try{
+        const { token, password } = req.body;
+        await resetPassword(token, password);
+
+        return successResponse(res,{
+            statusCode: 200,
+            message: `Reset password successfull`,
         })
     }catch(error){
         next(error);
@@ -226,13 +244,14 @@ const handleManageUserStatusById = async(req, res, next) => {
 }
 
 module.exports = {
-    getUsers, 
-    getUserById, 
+    handleGetUsers, 
+    handleGetUserById, 
     handleDeleteUserById, 
-    processRegister, 
-    activateUserAccount, 
+    handleProcessRegister, 
+    handleActivateUserAccount, 
     handleUpdateUserById,
     handleManageUserStatusById,
     handleForgetPassword,
+    handleResetPassword,
     handleUpdatePassword
  };

@@ -10,6 +10,8 @@ const userRouter = require('./router/userRouter');
 const seedRouter = require('./router/seedRouter');
 const { errorResponse } = require('./controllers/responseController');
 const authRouter = require('./router/authRouter');
+const categoryRouter = require('./router/categoryRouter');
+const productRouter = require('./router/productRouter');
 
 const app = express();
 
@@ -29,6 +31,8 @@ app.use(bodyParser.urlencoded({ extended: true }));
 app.use('/api/users', userRouter)
 app.use('/api/auth', authRouter)
 app.use('/api/seed', seedRouter)
+app.use('/api/categories', categoryRouter)
+app.use('/api/products', productRouter)
 
 
 const isLoggedIn = (req,res,next) => {

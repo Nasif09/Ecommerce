@@ -3,12 +3,12 @@ const fs = require('fs/promises');
 
 const deleteImage = async(imagePath) => {
     try{
-        console.log('delete image')
+        //console.log('delete image')
         await fs.access(imagePath);
         await fs.unlink(imagePath);
-        console.log('user image was deleted')
+        console.log('image was deleted')
     }catch(error){
-        console.error('user image doesnot exist');
+        console.error('Image doesnot exist');
         throw error;
     }
 }

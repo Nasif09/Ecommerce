@@ -18,8 +18,4 @@ const findById = async (Model, id, options = {}) => {
 
 
 
-const checkUserExists = async (email) => {
-    return await User.exists({ email });
-}
-
-module.exports = {findById, checkUserExists}
+module.exports = {findById}
