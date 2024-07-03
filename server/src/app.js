@@ -12,17 +12,19 @@ const { errorResponse } = require('./controllers/responseController');
 const authRouter = require('./router/authRouter');
 const categoryRouter = require('./router/categoryRouter');
 const productRouter = require('./router/productRouter');
+var cors = require('cors');
 
 const app = express();
+app.use(cors());
 
-const rateLimiter = rateLimit({
-    windowMs: 1 * 60 * 1000,//1 minitue
-    max: 5,
-    message: 'To many requests from this IP. Please try again later',
-})
+// const rateLimiter = rateLimit({
+//     windowMs: 1 * 60 * 1000,//1 minitue
+//     max: 5,
+//     message: 'To many requests from this IP. Please try again later',
+// })
 
 app.use(cookieParser()); 
-app.use(rateLimiter);
+// app.use(rateLimiter);
 app.use(xssClean());
 app.use(morgan('dev'));
 app.use(bodyParser.json());

@@ -1,13 +1,21 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import PageTitle from '../components/PageTitle';
+import CategoriesSilebar from '../components/CategoriesSilebar';
+import ProductSidebar from '../components/ProductSidebar';
 
 const Home = () => {
     return (
-        <div>
-            <PageTitle title="Home"/>
-            <h1>Home page</h1>
-            <h2>List of all products</h2>
-        </div>
+        <>
+            <PageTitle title="Home" />
+            <div className='container flex-space-around'>
+                <div className='sidebar-container'>
+                    <CategoriesSilebar/>
+                </div>
+                <div className='main-container'>
+                    <ProductSidebar/>
+                </div>
+            </div>
+        </>
     );
 };
 

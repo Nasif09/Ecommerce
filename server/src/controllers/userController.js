@@ -67,108 +67,98 @@ const handleDeleteUserById = async(req, res, next) => {
 }
 
 const handleProcessRegister = async(req, res, next) => {
-    try{
+    try {
         const { name, email, password, phone, address } = req.body;
 
         const image = req.file?.path;
-        if(image && image.size > 1024*1024*2*20){
-            throw createError(400, 'File too large.It must be less than 2MB');
+        if (image && image.size > 1024 * 1024 * 2 * 20) {
+            throw createError(400, 'File too large. It must be less than 2MB');
         }
 
-        // if(!image){
-        //     throw createError(400, 'Image file is required')
-        // }
-        // if(image.size > 2097152){
-        //     throw createError(400, 'Image file too large.It must be less than 2MB')
-        // }
-
-        // const imageBufferString = image.buffer.toString('base64');
-
         const userExists = await checkUserExists(email);
-        if(userExists){
+        if (userExists) {
             throw createError(
                 409,
                 'User with this email already exists. Please sign in'
-            )
+            );
         }
-        //create jwt
-        const tokenPayload = { name, email, password, phone, address };
 
-        if(image){
+        const tokenPayload = { name, email, password, phone, address };
+        if (image) {
             tokenPayload.image = image;
         }
         const token = createJSONWebToken(
-            tokenPayload, 
-            jwtActivationKey, 
+            tokenPayload,
+            jwtActivationKey,
             '10m'
         );
-        //prepare email
+
         const emailData = {
             email,
             subject: 'Account Activation Email',
-            html:`
-            <h2>Hello ${name}! </h2>
-            <p>Please click here to <a href="${clientURL}/api/users/activate/${token} target="_blank">activate your account</a></p>
+            html: `
+                <h2>Hello ${name}!</h2>
+                <p>Please click here to <a href="${clientURL}/api/users/activate/${token}" target="_blank">activate your account</a></p>
             `
-        }
-        
-        //send email with nodemailer
-        sendEmail(emailData);
+        };
 
-        return successResponse(res,{
+        await emailWithNodeMailer(emailData);
+
+        return successResponse(res, {
             statusCode: 200,
             message: `Please go to your ${email} for completing your registration`,
-            payload:  token ,
-        })
-    }catch(error){
+            payload: token,
+
+        });
+    } catch (error) {
         next(error);
     }
 }
+
 const handleActivateUserAccount = async(req, res, next) => {
-    try{
-        const token = req.body.token;
-        console.log("token:::::", token);
-        if(!token) throw createError(404, 'token not found');
+    try {
+        const token = req.params.token;
+        if (!token) throw createError(404, 'Token not found');
 
-        try{
-            const decoded = jwt.verify(token,jwtActivationKey);
-        if(!decoded) throw createError(401, 'user not verified');
-        
-        const userExists = await User.exists({email: decoded.email});
-        if(userExists){
-            throw createError(
-                409,
-                'User with this email already exists. Please sign in'
-            )
-        }
+        try {
+            const decoded = jwt.verify(token, jwtActivationKey);
+            if (!decoded) throw createError(401, 'User not verified');
+            
+            const userExists = await User.exists({ email: decoded.email });
+            if (userExists) {
+                throw createError(
+                    409,
+                    'User with this email already exists. Please sign in'
+                );
+            }
 
-        const image = decoded.image;
-        if(image){
-            const response = await cloudinary.uploader.upload(image,{
-                folder: 'ecommerceMern/users',
+            const image = decoded.image;
+            if (image) {
+                const response = await cloudinary.uploader.upload(image, {
+                    folder: 'ecommerceMern/users',
+                });
+                decoded.image = response.secure_url;
+            }
+
+            await User.create(decoded);
+            return successResponse(res, {
+                statusCode: 201,
+                message: 'User was registered successfully'
             });
-            decoded.image = response.secure_url;
-        }
-
-        await User.create(decoded);
-
-        return successResponse(res,{
-            statusCode: 201,
-            message: `User was registered successfully`,
-        })
-        }catch(error){
-            if(error.name == 'TokenExpiredError'){
-                throw createError(401, 'TOken has expired');
-            }else if(error.name == 'JsonWebTokenError'){
+        } catch (error) {
+            if (error.name === 'TokenExpiredError') {
+                throw createError(401, 'Token has expired');
+            } else if (error.name === 'JsonWebTokenError') {
                 throw createError(401, 'Invalid Token');
-            }else{
+            } else {
                 throw error;
             }
         }
-    }catch(error){
+    } catch (error) {
         next(error);
     }
 }
+
 
 const handleUpdateUserById = async(req, res, next) => {
     try{

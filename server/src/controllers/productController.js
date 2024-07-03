@@ -57,7 +57,7 @@ const handleGetProduct = async(req, res, next) => {
                 products: productsData.products, 
                 pagination: {
                     totalPages: productsData.totalPages,
-                    currentPagee: productsData.currentPage,
+                    currentPage: productsData.currentPage,
                     previousPage: productsData.currentPage-1,
                     nextPage: productsData.currentPage+1,
                     totalNumberOfProducts: productsData.count,
@@ -69,6 +69,21 @@ const handleGetProduct = async(req, res, next) => {
         next(error);
     }
 }
+
+const handleGetProductById = async (req, res, next) => {
+    try {
+        const id = req.params.id;
+        const product = await Product.findById(id);
+        return successResponse(res, {
+            statusCode: 200,
+            message: 'Product has been returned',
+            payload: product 
+        });
+    } catch (error) {
+        next(error);
+    }
+};
+
 
 const handleUpdateProduct = async(req, res, next) => {
     try{
@@ -103,5 +118,6 @@ module.exports = {
     handleCreateProduct,
     handleGetProduct,
     handleUpdateProduct,
-    handleDeleteProduct
+    handleDeleteProduct,
+    handleGetProductById
  };

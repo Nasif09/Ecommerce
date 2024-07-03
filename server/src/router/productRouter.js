@@ -2,7 +2,7 @@ const express = require('express');
 
 const { runValidation } = require('../validators');
 const { isLoggedOut, isLoggedIn, isAdmin } = require('../middlewares/auth');
-const { handleCreateProduct, handleGetProduct, handleDeleteProduct, handleUpdateProduct } = require('../controllers/productController');
+const { handleCreateProduct, handleGetProduct, handleDeleteProduct, handleUpdateProduct, handleGetProductById } = require('../controllers/productController');
 const { validateProduct } = require('../validators/product');
 const { uploadProductImage } = require('../middlewares/uploadFile');
 
@@ -22,6 +22,10 @@ productRouter.post(
 productRouter.get(
     '/', 
     handleGetProduct
+);
+productRouter.get(
+    '/:id([0-9a-fA-F]{24})', 
+    handleGetProductById
 );
 
 productRouter.put(
